@@ -1,0 +1,42 @@
+name: Build unsigned IPA
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Extract project
+        run: |
+          rm -rf project
+          mkdir -p project
+          unzip -q stock-analysis-ios-app.zip -d project
+
+      - name: Generate Xcode project
+        working-directory: project
+        run: xcodegen generate
+
+      - name: Build app
+        working-directory: project
+        run: |
+          xcodebuild -project StockAnalysis.xcodeproj -scheme StockAnalysis -sdk iphoneos -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Package unsigned IPA
+        working-directory: project
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/StockAnalysis.app Payload/
+          zip -qry StockAnalysis-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: StockAnalysis-unsigned
+          path: project/StockAnalysis-unsigned.ipa
